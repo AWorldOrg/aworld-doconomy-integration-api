@@ -1,6 +1,16 @@
 # Architecture Plan for Doconomy-AWorld Integration
 
+## Introduction
+
+This document outlines the architecture for integrating AWorld's light gamification and personalized content services with Doconomy's platform for Mastercard users. The integration aims to enhance user engagement through interactive stories, quizzes, and sustainability tips while maintaining a clear separation of concerns between systems.
+
+The unique challenge of this integration lies in its stateless nature and the requirement for Doconomy/Mastercard to maintain the authoritative user state. This document presents a solution that balances performance, scalability, and user experience while respecting these constraints.
+
 ## 1. System Overview
+
+The Doconomy-AWorld integration creates a seamless experience for end users while maintaining a clear separation between systems. Mastercard users will interact with personalized content and gamification elements without being aware of the underlying integration between Doconomy and AWorld.
+
+At its core, this integration follows a stateless API design pattern where Doconomy maintains the authoritative user state and passes it to AWorld with each request. AWorld processes these requests, delivers appropriate content, and returns any necessary state updates to Doconomy.
 
 This integration will provide a light gamification layer through personalized content (stories, quizzes, tips) for Mastercard users, with the following key characteristics:
 
@@ -36,7 +46,13 @@ flowchart TB
 
 ## 2. API Design
 
+The API design is a critical component of this integration, as it defines how Doconomy and AWorld will communicate. The design prioritizes performance, clarity, and statelessness while ensuring that all necessary information is exchanged efficiently.
+
+Given the high-volume requirements (millions of requests daily) and strict performance constraints (sub-200ms response times), the API is designed to be lightweight yet comprehensive. Each request includes the complete user state, allowing AWorld to make informed decisions without maintaining its own copy of user data.
+
 ### 2.1 API Endpoints
+
+AWorld will expose a set of RESTful API endpoints that enable Doconomy to request personalized content and submit user interactions. These endpoints are designed to be intuitive, consistent, and aligned with RESTful best practices.
 
 AWorld will expose the following RESTful API endpoints:
 
@@ -57,6 +73,10 @@ AWorld will expose the following RESTful API endpoints:
    - Processes quiz answers and returns results
 
 ### 2.2 Request/Response Format
+
+The request and response format is designed to be consistent across all endpoints, making the API intuitive to use and easy to maintain. The format supports the stateless nature of the integration by including the complete user state in each request and returning any necessary updates in the response.
+
+This approach eliminates the need for complex state synchronization mechanisms between systems and ensures that Doconomy always has the most up-to-date information about the user's interactions with AWorld content.
 
 All API requests will follow a similar pattern:
 
@@ -116,6 +136,10 @@ sequenceDiagram
 
 ## 3. Data Storage Model
 
+While the primary user state is maintained by Doconomy/bank, AWorld needs to store some data for reporting, analytics, and operational purposes. This data storage is designed to be minimal and focused on anonymized interaction data rather than comprehensive user profiles.
+
+The data storage model balances the need for meaningful analytics with privacy considerations and system performance. By storing only what's necessary, AWorld can generate valuable insights without duplicating the user state maintained by Doconomy.
+
 AWorld will maintain storage of anonymized data for reporting and analytics purposes:
 
 ```mermaid
@@ -144,6 +168,10 @@ This storage is separate from the authoritative user state maintained by Doconom
 
 ## 4. Synchronous Gamification Updates
 
+A key aspect of this integration is how gamification updates are handled. The gamification elements (experience points, levels, achievements) enhance user engagement and provide feedback on sustainable behaviors. How these updates are processed affects both the user experience and the system architecture.
+
+After careful consideration of the requirements and constraints, we recommend a synchronous approach to gamification updates. This approach provides immediate feedback to users and simplifies the overall system by eliminating the need for complex asynchronous update mechanisms.
+
 The primary approach uses synchronous gamification updates where all logic (exp, levels, etc.) is processed immediately:
 
 ```mermaid
@@ -169,7 +197,13 @@ This approach couples the business logic of different domains (quiz processing a
 
 ## 5. Alternative Approach for Large Content Libraries
 
+While the primary architecture assumes a manageable content library size, it's prudent to consider how the system would scale if the content library grows significantly. This section presents an alternative approach that addresses potential scalability challenges with very large content libraries.
+
+The main concern with large content libraries is the growing size of the user state that must be passed with each request. If a user interacts with thousands of content items, storing all these interactions in the user state could lead to performance issues and increased data transfer costs.
+
 ### Plan B: Minimal State Storage on Doconomy/Bank Side
+
+This alternative approach shifts more of the storage responsibility to AWorld while keeping the essential gamification state with Doconomy/bank. It maintains the stateless API design while reducing the data volume transferred with each request.
 
 If the bank decides to offer a very large content library (e.g., thousands of stories, quizzes, etc.), storing all interaction history in the user state on Doconomy/bank side could become problematic. In this scenario, an alternative approach would be:
 
