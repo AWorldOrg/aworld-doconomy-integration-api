@@ -62,7 +62,7 @@ AWorld will expose the following RESTful API endpoints:
 
 2. **Story Completion Submission**
    - `POST /api/v1/stories/{storyId}/answers`
-   - Processes quiz answers and returns results
+   - Processes story's quizzes answers and returns results
 
 3. **Quiz Delivery**
    - `GET /api/v1/quizzes`
@@ -71,6 +71,14 @@ AWorld will expose the following RESTful API endpoints:
 4. **Quiz Answer Submission**
    - `POST /api/v1/quizzes/{quizId}/answers`
    - Processes quiz answers and returns results
+
+5. **Tips Delivery**
+   - `GET /api/v1/tips`
+   - Delivers personalized sustainability tips based on user state
+
+6. **Tip Adoption Submission**
+   - `POST /api/v1/tips/{tipId}/submit`
+   - Records that the user has adopted the behavior described in the tip and returns updated gamification state
 
 ### 2.2 Request/Response Format
 
@@ -103,6 +111,19 @@ sequenceDiagram
     "preferences": { ... },
     "completedQuizzes": [ ... ],
     "viewedStories": [ ... ],
+    "tipAdoptions": {
+      "tip123": {
+        "dailyCounts": {
+          "2025-04-29": 3,
+          "2025-04-30": 2
+        }
+      },
+      "tip456": {
+        "dailyCounts": {
+          "2025-04-30": 1
+        }
+      }
+    },
     "exp": 1250,
     "level": 3,
     ...
@@ -129,6 +150,14 @@ sequenceDiagram
     "exp": 1300,  // Updated from 1250
     "level": 3,
     "completedQuizzes": [ ... ],  // With newly completed quiz
+    "tipAdoptions": {
+      "tip123": {
+        "dailyCounts": {
+          "2025-04-29": 3,
+          "2025-04-30": 3  // Updated from 2
+        }
+      }
+    },
     ...
   }
 }
@@ -162,7 +191,7 @@ erDiagram
 ```
 
 - **User**: Stores only the user ID and creation timestamp
-- **Interaction**: Records anonymized interaction data (content views, quiz completions, etc.)
+- **Interaction**: Records anonymized interaction data (content views, quiz completions, tip adoptions, etc.)
 
 This storage is separate from the authoritative user state maintained by Doconomy/bank but allows AWorld to generate reports and analytics on content performance and user engagement patterns.
 
@@ -241,6 +270,7 @@ In this approach:
 2. AWorld stores the complete interaction history:
    - All viewed stories
    - All completed quizzes with answers
+   - All tip adoptions with daily counts
    - Detailed interaction timestamps
    - Content recommendations history
 
