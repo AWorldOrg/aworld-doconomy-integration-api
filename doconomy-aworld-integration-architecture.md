@@ -19,7 +19,7 @@ This integration will provide a light gamification layer through personalized co
 - Each API call includes the complete user state
 - Minimal data storage on AWorld side (user IDs and anonymized interaction data for reporting purposes)
 - OAuth2 authentication
-- Cloud-native microservices architecture using Node.js/TypeScript
+- Cloud-native microservices architecture
 
 ```mermaid
 flowchart TB
@@ -77,8 +77,8 @@ AWorld will expose the following RESTful API endpoints:
    - Delivers personalized sustainability tips based on user state
 
 6. **Tip Adoption Submission**
-   - `POST /api/v1/tips/{tipId}/submit`
-   - Records that the user has adopted the behavior described in the tip and returns updated gamification state
+   - `POST /api/v1/tips/submit`
+   - Records that the user has adopted the behavior described in one or more tips and returns updated gamification state
 
 ### 2.2 Request/Response Format
 
@@ -130,7 +130,14 @@ sequenceDiagram
   },
   "requestParams": {
     // Endpoint-specific parameters
-    ...
+    "tipAdoptions": [
+      {
+        "tipId": "tip123"
+      },
+      {
+        "tipId": "tip456"
+      }
+    ]
   }
 }
 ```
@@ -142,7 +149,24 @@ sequenceDiagram
   "status": "success",
   "data": {
     // Endpoint-specific response data
-    ...
+    "tips": [
+      {
+        "tipId": "tip123",
+        "title": "Use a bike for short trips",
+        "description": "For trips under 2 miles, consider using a bicycle instead of a car",
+        "category": "transportation",
+        "maxDailyCount": 3,
+        "currentDailyCount": 2,  // From user state for today
+      },
+      {
+        "tipId": "tip456",
+        "title": "Turn off lights when leaving a room",
+        "description": "Save energy by turning off lights in unoccupied rooms",
+        "category": "energy",
+        "maxDailyCount": 1,
+        "currentDailyCount": 1,  // From user state for today
+      }
+    ]
   },
   "updatedUserState": {
     // Updated user state (when applicable)
@@ -155,6 +179,11 @@ sequenceDiagram
         "dailyCounts": {
           "2025-04-29": 3,
           "2025-04-30": 3  // Updated from 2
+        }
+      },
+      "tip456": {
+        "dailyCounts": {
+          "2025-04-30": 2  // Updated from 1
         }
       }
     },
@@ -224,7 +253,78 @@ sequenceDiagram
 
 This approach couples the business logic of different domains (quiz processing and gamification) but provides immediate feedback to users about their progress. The trade-off is increased complexity in the AWorld system, which now needs to handle all gamification logic synchronously.
 
-## 5. Alternative Approach for Large Content Libraries
+## 5. Stories Workflow
+
+The stories workflow illustrates how users interact with personalized stories, including requesting stories with complete content and completing any associated quizzes. This workflow is a key part of the user experience and demonstrates how the stateless API design efficiently delivers content while minimizing API calls.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Bank
+    participant Doconomy
+    participant AWorld
+    
+    Note over User,AWorld: Story Discovery and Content Delivery
+    
+    User->>Bank: Requests personalized stories
+    Bank->>Doconomy: Forwards request
+    Doconomy->>AWorld: GET /api/v1/stories with user state
+    Note right of AWorld: AWorld selects stories<br/>based on user profile<br/>and interaction history
+    AWorld->>Doconomy: Returns list of stories with complete content
+    Doconomy->>Doconomy: Updates user state (viewedStories)
+    Doconomy->>Bank: Updates UI
+    Bank->>User: Displays stories with content
+    
+    Note over User,AWorld: Story Interaction Phase (if story has quiz)
+    
+    User->>Bank: Completes story quiz
+    Bank->>Doconomy: Forwards answers
+    Doconomy->>AWorld: POST /api/v1/stories/{storyId}/answers with user state
+    Note right of AWorld: AWorld processes answers<br/>Updates gamification<br/>Stores anonymized data
+    AWorld->>Doconomy: Returns results and updated user state
+    Doconomy->>Doconomy: Stores updated user state
+    Doconomy->>Bank: Updates UI
+    Bank->>User: Shows quiz results and gamification updates
+```
+
+This workflow demonstrates the complete lifecycle of story interaction, from discovery and content delivery to quiz interaction. By delivering complete story content in the initial request, the API minimizes the number of calls needed while still providing a rich user experience. The stateless nature of the API ensures that each interaction is self-contained with the user state that's passed with each request.
+
+## 6. Tips Workflow
+
+The tips workflow illustrates how users interact with sustainability tips, including requesting personalized tips and submitting tip adoptions. This workflow demonstrates the efficiency of batch operations for minimizing API calls while still providing a rich gamification experience.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Bank
+    participant Doconomy
+    participant AWorld
+    
+    Note over User,AWorld: Tips Discovery and Delivery
+    
+    User->>Bank: Requests personalized tips
+    Bank->>Doconomy: Forwards request
+    Doconomy->>AWorld: GET /api/v1/tips with user state
+    Note right of AWorld: AWorld selects tips<br/>based on user profile<br/>(not filtered by adoption history)
+    AWorld->>Doconomy: Returns list of personalized tips with max daily counts
+    Doconomy->>Bank: Updates UI
+    Bank->>User: Displays tips
+    
+    Note over User,AWorld: Batch Tip Adoption Submission
+    
+    User->>Bank: Adopts multiple tips
+    Bank->>Doconomy: Forwards adoptions
+    Doconomy->>AWorld: POST /api/v1/tips/submit with user state
+    Note right of AWorld: AWorld processes adoptions<br/>Updates gamification<br/>Stores anonymized data
+    AWorld->>Doconomy: Returns updated user state with new adoption counts
+    Doconomy->>Doconomy: Stores updated user state
+    Doconomy->>Bank: Updates UI
+    Bank->>User: Shows gamification updates
+```
+
+This workflow demonstrates how multiple tip adoptions can be submitted in a single API call, improving efficiency and reducing network overhead. Unlike stories and quizzes, tips are always returned regardless of previous adoptions, with each tip including information about the maximum number of times it can be adopted per day and the user's current adoption count (e.g., "2 out of 3 times for today"). This approach encourages repeated engagement with the same tips over time, promoting consistent sustainable behaviors.
+
+## 7. Alternative Approach for Large Content Libraries
 
 While the primary architecture assumes a manageable content library size, it's prudent to consider how the system would scale if the content library grows significantly. This section presents an alternative approach that addresses potential scalability challenges with very large content libraries.
 
